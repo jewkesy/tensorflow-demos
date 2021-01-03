@@ -8,7 +8,7 @@
 let x_vals = [];
 let y_vals = [];
 
-let screenWidth = 1800
+let screenWidth = 600
 let screenHeight = 600
 
 let m, b;
@@ -24,19 +24,7 @@ function setup() {
   fetch("https://e94s2o5jyb.execute-api.eu-west-1.amazonaws.com/prod/getHomePageContent?getdailygames=true&prefix=pc&limit=0&locale=&timefrom="+fromDate)
     .then(response => response.json())
     .then(json => {
-      console.log(json)
-  
-
-    getDailyGamesHistory(json);
-      // var data = getDailyGamesHistory(json);
-
-      // var timeline = []
-      // for (var i = 0; i < data.length; i++) {
-      //   timeline.push(i+1)
-      // }
-
-      // x_vals = normaliseArray(timeline, screenWidth)
-      // y_vals = data
+      getDailyGamesHistory(json);
     }).catch(error => {
     console.error('There has been a problem with your fetch operation:', error);
   });;  
@@ -81,10 +69,6 @@ function draw() {
   for (let i = 0; i < x_vals.length; i++) {
     let px = map(x_vals[i], 0, 1, 0, width);
     let py = map(y_vals[i], 0, 1, height, 0);
-    // console.log(y_vals)
-    // let px = x_vals[i];
-    // let py = y_vals[i];
-    // console.log(px,py)
     point(px, py);
   }
 
@@ -122,15 +106,17 @@ function getDailyGamesHistory(source) {
       }
     }
   }
-console.log(dailyGames)
+
   dailyGames.sort(compare);
-  // console.log(dailyGames)
+  console.log(dailyGames)
 
   let retVal = [];
   for (var i = 0; i < dailyGames.length; i++) {
-    var g = dailyGames[i].games
     retVal.push(dailyGames[i].games)
   }
+
+  console.log(dailyGames[0], retVal[0])
+  console.log(retVal)
 
   var normVals = normaliseArray(retVal, height)
 
@@ -138,6 +124,8 @@ console.log(dailyGames)
   for (var i = 0; i < normVals.length; i++) {
     timeline.push(i+1)
   }
+
+  timeline = normaliseArray(timeline, width)
 
   for (var i = 0; i < normVals.length; i++) {
     normVals[i] = height-normVals[i]
@@ -147,21 +135,19 @@ console.log(dailyGames)
     x_vals.push(x)
     y_vals.push(y)
   }
-  // console.log(normVals)
+
 
 }
 
 function normaliseArray(array, max) {
-  console.log(array)
+
   var ratio = Math.max.apply(Math, array) / max;
-  console.log(ratio, max)
+
   for (var i = 0; i < array.length; i++) {
       array[i] = Math.round(array[i] / ratio);
   }
-  console.log(array)
+
   return array;
-
-
 }
 
 function compare( a, b ) {
@@ -173,5 +159,3 @@ function compare( a, b ) {
   }
   return 0;
 }
-
-
