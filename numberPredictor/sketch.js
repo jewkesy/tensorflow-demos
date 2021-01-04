@@ -65,7 +65,6 @@ function mousePressed() {
 }
 
 function draw() {
-  console.log('draw')
   tf.tidy(() => {
     if (x_vals.length > 0) {
       const ys = tf.tensor1d(y_vals);
