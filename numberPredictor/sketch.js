@@ -8,19 +8,29 @@
 let x_vals = [];
 let y_vals = [];
 
-let screenWidth = 600
-let screenHeight = 600
+let screenWidth = 800
+let screenHeight = 800
 
 let m, b;
 let fromDate = "2010-11-30";
+
+let countDiv;
+let currCount = 0;
 
 const learningRate = 0.5;
 const optimizer = tf.train.sgd(learningRate);
 
 function setup() {
+  getData()
   createCanvas(screenWidth, screenHeight);
   m = tf.variable(tf.scalar(random(1)));
   b = tf.variable(tf.scalar(random(1)));
+  countDiv = createDiv('Todays Count: ...');
+  setInterval(getData, 3000); 
+}
+
+function getData() {
+  noLoop();  // to reduce cpu
   fetch("https://e94s2o5jyb.execute-api.eu-west-1.amazonaws.com/prod/getHomePageContent?getdailygames=true&prefix=pc&limit=0&locale=&timefrom="+fromDate)
     .then(response => response.json())
     .then(json => {
@@ -55,6 +65,7 @@ function mousePressed() {
 }
 
 function draw() {
+  console.log('draw')
   tf.tidy(() => {
     if (x_vals.length > 0) {
       const ys = tf.tensor1d(y_vals);
@@ -69,9 +80,11 @@ function draw() {
   for (let i = 0; i < x_vals.length; i++) {
     let px = map(x_vals[i], 0, 1, 0, width);
     let py = map(y_vals[i], 0, 1, height, 0);
+    if (i == x_vals.length-1) stroke(255,0,0)
     point(px, py);
   }
 
+  stroke(0,255,0);
   const lineX = [0, 1];
 
   const ys = tf.tidy(() => predict(lineX));
@@ -96,10 +109,8 @@ function getDailyGamesHistory(source) {
   let dailyGames = [];
   for (var i = 0; i < source.g.length; i++) { 
     var x = source.g[i]
-    // console.info(x.year, x.month)
     for (const [key, value] of Object.entries(x)) {
       // if (!value.games) continue;
-      // console.log(key)
       if (key.indexOf('d_') == 0) {
         if (!value.games) value.games = 0;
         dailyGames.push({d: key, games:  value.games})
@@ -107,16 +118,21 @@ function getDailyGamesHistory(source) {
     }
   }
 
-  dailyGames.sort(compare);
-  console.log(dailyGames)
+  dailyGames = dailyGames.sort(compare);
+
+  if (dailyGames[dailyGames.length-1].games == currCount) {  // to reduce cpu
+    noLoop();
+  } else {
+    loop();
+    currCount = dailyGames[dailyGames.length-1].games;
+  }
+
+  countDiv.html('Todays Count: ' + dailyGames[dailyGames.length-1].games);
 
   let retVal = [];
   for (var i = 0; i < dailyGames.length; i++) {
     retVal.push(dailyGames[i].games)
   }
-
-  console.log(dailyGames[0], retVal[0])
-  console.log(retVal)
 
   var normVals = normaliseArray(retVal, height)
 
@@ -130,24 +146,26 @@ function getDailyGamesHistory(source) {
   for (var i = 0; i < normVals.length; i++) {
     normVals[i] = height-normVals[i]
 
-    let x = map(timeline[i], 0, width, 0, 1);
+    let x = map(timeline[i], 0, width*1.02, 0, 1);
     let y = map(normVals[i], 0, height, 1, 0);
     x_vals.push(x)
     y_vals.push(y)
   }
-
-
 }
 
 function normaliseArray(array, max) {
-
-  var ratio = Math.max.apply(Math, array) / max;
-
+  var x = Math.max.apply(Math, array);
+  // console.log(x)
+  var ratio = x / max;
+  var retVal = []
   for (var i = 0; i < array.length; i++) {
-      array[i] = Math.round(array[i] / ratio);
+    // var a = array[i];
+    // var b = Math.round(array[i] / ratio)
+    // console.log(a,b)
+      retVal.push( Math.round(array[i] / ratio));
   }
 
-  return array;
+  return retVal;
 }
 
 function compare( a, b ) {
