@@ -2,8 +2,8 @@
 // http://codingtra.in
 // http://patreon.com/codingtrain
 
-// Linear Regression with TensorFlow.js
-// Video: https://www.youtube.com/watch?v=dLp10CFIvxI
+// Polynomial Regression with TensorFlow.js
+// Video: https://youtu.be/tIXDik5SGsI
 
 let x_vals = [];
 let y_vals = [];
@@ -11,22 +11,48 @@ let y_vals = [];
 let screenWidth = 800
 let screenHeight = 800
 
-let m, b;
+let a, b, c, d;
+let dragging = false;
+
+let scaleY = 800;
+
+const learningRate = 0.2;
+const optimizer = tf.train.adam(learningRate);
+
 let fromDate = "2010-11-30";
 
-let countDiv;
+let countDiv, predictDiv;
 let currCount = 0;
-
-const learningRate = 0.5;
-const optimizer = tf.train.sgd(learningRate);
 
 function setup() {
   getData()
   createCanvas(screenWidth, screenHeight);
-  m = tf.variable(tf.scalar(random(1)));
-  b = tf.variable(tf.scalar(random(1)));
+  a = tf.variable(tf.scalar(random(-1, 1)));
+  b = tf.variable(tf.scalar(random(-1, 1)));
+  c = tf.variable(tf.scalar(random(-1, 1)));
+  d = tf.variable(tf.scalar(random(-1, 1)));
   countDiv = createDiv('Todays Count: ...');
+  predictDiv = createDiv('Prediction: ...');
   setInterval(getData, 3000); 
+}
+
+function loss(pred, labels) {
+  return pred
+    .sub(labels)
+    .square()
+    .mean();
+}
+
+function predict(x) {
+  const xs = tf.tensor1d(x);
+  // y = ax^3 + bx^2 + cx + d
+  const ys = xs
+    .pow(tf.scalar(3))
+    .mul(a)
+    .add(xs.square().mul(b))
+    .add(xs.mul(c))
+    .add(d);
+  return ys;
 }
 
 function getData() {
@@ -40,43 +66,33 @@ function getData() {
   });;  
 }
 
-function loss(pred, labels) {
-  return pred
-    .sub(labels)
-    .square()
-    .mean();
-}
-
-function predict(x) {
-  const xs = tf.tensor1d(x);
-  // y = mx + b;
-  const ys = xs.mul(m).add(b);
-  return ys;
-}
-
 function mousePressed() {
-  // console.log(mouseX, mouseY)
-  // let x = map(mouseX, 0, width, 0, 1);
-  // let y = map(mouseY, 0, height, 1, 0);
-  // console.log(x, y)
-  // x_vals.push(x);
-  // y_vals.push(y);
-  // console.log(x_vals)
+  dragging = true;
+}
+
+function mouseReleased() {
+  dragging = false;
 }
 
 function draw() {
-  tf.tidy(() => {
-    if (x_vals.length > 0) {
-      const ys = tf.tensor1d(y_vals);
-      optimizer.minimize(() => loss(predict(x_vals), ys));
-    }
-  });
+  if (dragging) {
+    let x = map(mouseX, 0, width, -1, 1);
+    let y = map(mouseY, 0, height, 1, -1);
+    x_vals.push(x);
+    y_vals.push(y);
+  } else {
+    tf.tidy(() => {
+      if (x_vals.length > 0) {
+        const ys = tf.tensor1d(y_vals);
+        optimizer.minimize(() => loss(predict(x_vals), ys));
+      }
+    });
+  }
 
   background(0);
 
   stroke(255);
-  strokeWeight(3);
-
+  strokeWeight(4);
   for (let i = 0; i < x_vals.length; i++) {
     let px = map(x_vals[i], 0, 1, 0, width);
     let py = map(y_vals[i], 0, 1, height, 0);
@@ -84,25 +100,40 @@ function draw() {
     point(px, py);
   }
 
-  stroke(0,255,0);
-  const lineX = [0, 1];
+  const curveX = [];
+  for (let x = -1; x <= 1; x += 0.05) {
+    curveX.push(x);
+  }
 
-  const ys = tf.tidy(() => predict(lineX));
-  let lineY = ys.dataSync();
-  // console.log(lineY)
+  const ys = tf.tidy(() => predict(curveX));
+  let curveY = ys.dataSync();
   ys.dispose();
 
-  let x1 = map(lineX[0], 0, 1, 0, width);
-  let x2 = map(lineX[1], 0, 1, 0, width);
-
-  let y1 = map(lineY[0], 0, 1, height, 0);
-  let y2 = map(lineY[1], 0, 1, height, 0);
-
+  beginShape();
+  noFill();
+  stroke(0,255,0);
   strokeWeight(2);
-  line(x1, y1, x2, y2);
+  var lastX;
+  var lastY;
+  for (let i = 0; i < curveX.length; i++) {
+    let x = map(curveX[i], 0, 1, 0, width*1.037);
+    let y = map(curveY[i], 0, 1, height, 0);
+    vertex(x, y);
+    lastY = y
+  }
+  getNextDayPrediction(lastY)
+  endShape();
 
   // console.log(tf.memory().numTensors);
-  // noLoop();
+}
+
+function getNextDayPrediction(yVal) {
+
+  let pix = screenHeight-Math.floor(yVal);
+
+  let predict = Math.floor((scaleY/screenHeight)*pix)
+  predictDiv.html('Prediction: ' + predict)
+  // console.log(pix, scaleY, predict)
 }
 
 function getDailyGamesHistory(source) {
@@ -137,6 +168,7 @@ function getDailyGamesHistory(source) {
     retVal.push(dailyGames[i].games)
   }
 
+  scaleY = Math.max.apply(Math, retVal);
   var normVals = normaliseArray(retVal, height)
 
   var timeline = []
@@ -158,7 +190,6 @@ function getDailyGamesHistory(source) {
 
 function normaliseArray(array, max) {
   var x = Math.max.apply(Math, array);
-  // console.log(x)
   var ratio = x / max;
   var retVal = []
   for (var i = 0; i < array.length; i++) {
